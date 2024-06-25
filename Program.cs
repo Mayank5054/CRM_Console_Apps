@@ -16,8 +16,14 @@ using System.Web.UI;
 using System.Threading.Tasks;
 using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Crm.Sdk.Messages;
+using System.IdentityModel.Metadata;
 namespace ConsoleApp2
 {
+    class EmailData
+    {
+        public String accountName{get;set ;}
+        public List<AliasedValue> listOfEmail { get; set; }
+    }
     internal class Program
     {
         static void Main(string[] args)
@@ -207,44 +213,72 @@ namespace ConsoleApp2
                         //serviceClient.Execute(winRequest);
 
 
+                        // task 06
                         QueryExpression query = new QueryExpression("account")
                         {
                             ColumnSet = new ColumnSet("accountid", "name")
                         };
 
+                        LinkEntity le = new LinkEntity("account","email","accountid", "regardingobjectid", JoinOperator.Inner);
+                        le.Columns = new ColumnSet("subject");
+                        query.LinkEntities.Add(le);
                         // Retrieve accounts
                         EntityCollection accounts = serviceClient.RetrieveMultiple(query);
-
-                        // Create a dictionary to store account email counts
-                        Dictionary<Guid, int> accountEmailCounts = new Dictionary<Guid, int>();
-
-                        foreach (var account in accounts.Entities)
+                        Dictionary<Guid, EmailData> accountWithEmails = new Dictionary<Guid, EmailData>();
+                        foreach (Entity account in accounts.Entities)
                         {
-                            Guid accountId = account.Id;
-                            string accountName = account.GetAttributeValue<string>("name");
-
-                            // Define the query expression to count emails related to the account
-                            QueryExpression emailQuery = new QueryExpression("email")
+                            if (account.Contains("email1.subject"))
                             {
-                                ColumnSet = new ColumnSet("activityid"),
-                                Criteria = new FilterExpression
+                                if (accountWithEmails.ContainsKey(account.Id))
                                 {
-                                    Conditions =
+                                    accountWithEmails[account.Id].listOfEmail.Add(account.GetAttributeValue<AliasedValue>("email1.subject"));
+
+                                }
+                                else
                                 {
-                                    new ConditionExpression("regardingobjectid", ConditionOperator.Equal, accountId)
+                                    accountWithEmails[account.Id] = new EmailData() { listOfEmail = new List<AliasedValue>(),
+                                    accountName = account.GetAttributeValue<String>("name")
+                                    };
+                                    AliasedValue _av = account.GetAttributeValue<AliasedValue>("email1.subject");
+                                    accountWithEmails[account.Id].listOfEmail.Add(_av);
                                 }
-                                }
-                            };
+                           
+                            }
 
-                            // Retrieve related emails
-                            EntityCollection emails = serviceClient.RetrieveMultiple(emailQuery);
-
-                            // Store the count of related emails
-                            accountEmailCounts[accountId] = emails.Entities.Count;
-
-                            Console.WriteLine($"Account ID: {accountId}, Name: {accountName}, Email Count: {emails.Entities.Count}");
+                          
                         }
+                        foreach (Guid keys in accountWithEmails.Keys)
+                        {
+                            Console.WriteLine($"{accountWithEmails[keys].accountName} : " + accountWithEmails[keys].listOfEmail.Count);
                         }
+
+             
+                        //// Create a dictionary to store account email counts
+                        //Dictionary<Guid, int> accountEmailCounts = new Dictionary<Guid, int>();
+
+
+                        // Define the query expression to count emails related to the account
+                        //QueryExpression emailQuery = new QueryExpression("email")
+                        //{
+                        //    ColumnSet = new ColumnSet("activityid"),
+                        //    Criteria = new FilterExpression
+                        //    {
+                        //        Conditions =
+                        //    {
+                        //        new ConditionExpression("regardingobjectid", ConditionOperator.Equal, accountId)
+                        //    }
+                        //    }
+                        //};
+
+                        //// Retrieve related emails
+                        //EntityCollection emails = serviceClient.RetrieveMultiple(emailQuery);
+
+                        //// Store the count of related emails
+                        //accountEmailCounts[accountId] = emails.Entities.Count;
+
+                        //Console.WriteLine($"Account ID: {accountId}, Name: {accountName}, Email Count: {emails.Entities.Count}");
+
+                    }
 
                     else
                     {
